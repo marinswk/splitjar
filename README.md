@@ -25,20 +25,18 @@ Built to run as a single Docker container on your home server and embed inside a
 
 <table>
   <tr>
-    <td><img src="docs/screenshots/groups.png" alt="Groups list"/></td>
-    <td><img src="docs/screenshots/expenses.png" alt="Expense list"/></td>
+    <td width="50%"><img src="docs/screenshots/groups.png" alt="Groups list"/></td>
+    <td width="50%"><img src="docs/screenshots/expenses.png" alt="Expense list with balances overview"/></td>
   </tr>
   <tr>
-    <td><img src="docs/screenshots/expense-form.png" alt="Add expense"/></td>
-    <td><img src="docs/screenshots/stats.png" alt="Stats and settlement"/></td>
+    <td><img src="docs/screenshots/stats.png" alt="Stats with bar chart and balances"/></td>
+    <td><img src="docs/screenshots/settlement.png" alt="Settled timeline with settlement row"/></td>
   </tr>
   <tr>
-    <td><img src="docs/screenshots/mobile-expenses.png" alt="Mobile expense list"/></td>
+    <td><img src="docs/screenshots/mobile-expenses.png" alt="Mobile expenses"/></td>
     <td><img src="docs/screenshots/mobile-stats.png" alt="Mobile stats"/></td>
   </tr>
 </table>
-
-> Screenshots live in `docs/screenshots/` — capture them after your first real use.
 
 ## Quick start
 

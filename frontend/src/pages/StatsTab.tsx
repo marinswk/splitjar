@@ -1,10 +1,9 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Bar,
   BarChart,
   CartesianGrid,
-  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
@@ -30,6 +29,21 @@ export default function StatsTab({ group }: { group: Group }) {
     queryKey: ["stats", group.id, params],
     queryFn: () => api.stats(group.id, params.year, params.month),
   });
+
+  // Drive BarChart width from our own ResizeObserver. ResponsiveContainer
+  // can latch onto a stale 0-width on first render, so we measure the box
+  // ourselves and pass an explicit width to BarChart.
+  const chartBoxRef = useRef<HTMLDivElement>(null);
+  const [chartWidth, setChartWidth] = useState(600);
+  useEffect(() => {
+    const el = chartBoxRef.current;
+    if (!el) return;
+    const update = () => setChartWidth(el.clientWidth || 600);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   return (
     <div className="space-y-4">
@@ -62,23 +76,29 @@ export default function StatsTab({ group }: { group: Group }) {
         <>
           <div className="card">
             <h3 className="mb-2 text-sm font-semibold">Paid vs owed</h3>
-            <div className="h-64 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={data.balances.map((b) => ({
-                    name: b.name,
-                    paid: parseFloat(b.paid),
-                    owed: parseFloat(b.owed),
-                  }))}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="paid" fill="#38bdf8" />
-                  <Bar dataKey="owed" fill="#075985" />
-                </BarChart>
-              </ResponsiveContainer>
+            <div ref={chartBoxRef} className="h-64 w-full">
+              <BarChart
+                width={chartWidth}
+                height={256}
+                data={data.balances.map((b) => ({
+                  name: b.name,
+                  paid: parseFloat(b.paid),
+                  owed: parseFloat(b.owed),
+                }))}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                <XAxis dataKey="name" stroke="#9ca3af" />
+                <YAxis stroke="#9ca3af" />
+                <Tooltip
+                  contentStyle={{
+                    background: "#18181b",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    color: "#f1f5f9",
+                  }}
+                />
+                <Bar dataKey="paid" fill="#38bdf8" isAnimationActive={false} />
+                <Bar dataKey="owed" fill="#075985" isAnimationActive={false} />
+              </BarChart>
             </div>
           </div>
 
