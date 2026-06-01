@@ -2,24 +2,30 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+}
+
 @layer components {
   .btn {
     @apply inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-medium transition-colors;
   }
   .btn-primary {
-    @apply btn bg-emerald-600 text-white hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-canvas;
+    @apply btn bg-sky-500 text-white hover:bg-sky-600 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 focus:ring-offset-canvas;
   }
   .btn-ghost {
-    @apply btn text-slate-700 hover:bg-slate-100;
+    @apply btn text-slate-300 hover:bg-white/5;
   }
   .card {
-    @apply rounded-xl border border-slate-200 bg-white p-4 shadow-sm;
+    @apply rounded-xl border border-white/10 bg-zinc-900 p-4 shadow-sm;
   }
   .input {
-    @apply w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500;
+    @apply w-full rounded-md border border-white/10 bg-zinc-900 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500;
   }
   .label {
-    @apply mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500;
+    @apply mb-1 block text-xs font-medium uppercase tracking-wide text-slate-400;
   }
 }
 

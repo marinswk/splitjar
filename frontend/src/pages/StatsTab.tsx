@@ -44,11 +44,11 @@ export default function StatsTab({ group }: { group: Group }) {
             setMonth(m);
           }}
         />
-        <div className="text-sm text-slate-500">
+        <div className="text-sm text-slate-400">
           {data && (
             <>
               Total:{" "}
-              <span className="font-semibold text-slate-800">
+              <span className="font-semibold text-slate-100">
                 {fmt(data.total, group.currency)}
               </span>
             </>
@@ -57,7 +57,7 @@ export default function StatsTab({ group }: { group: Group }) {
       </div>
 
       {isLoading || !data ? (
-        <p className="text-sm text-slate-500">Loading…</p>
+        <p className="text-sm text-slate-400">Loading…</p>
       ) : (
         <>
           <div className="card">
@@ -75,8 +75,8 @@ export default function StatsTab({ group }: { group: Group }) {
                   <XAxis dataKey="name" />
                   <YAxis />
                   <Tooltip />
-                  <Bar dataKey="paid" fill="#10b981" />
-                  <Bar dataKey="owed" fill="#065f46" />
+                  <Bar dataKey="paid" fill="#38bdf8" />
+                  <Bar dataKey="owed" fill="#075985" />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -85,10 +85,10 @@ export default function StatsTab({ group }: { group: Group }) {
           <div className="card">
             <h3 className="mb-2 text-sm font-semibold">Balances</h3>
             {data.balances.length === 0 ? (
-              <p className="text-sm text-slate-500">No data.</p>
+              <p className="text-sm text-slate-400">No data.</p>
             ) : (
               <table className="w-full text-sm">
-                <thead className="text-left text-xs text-slate-500">
+                <thead className="text-left text-xs text-slate-400">
                   <tr>
                     <th className="py-1">Member</th>
                     <th className="py-1 text-right">Paid</th>
@@ -98,13 +98,13 @@ export default function StatsTab({ group }: { group: Group }) {
                 </thead>
                 <tbody>
                   {data.balances.map((b) => (
-                    <tr key={b.member_id} className="border-t border-slate-100">
+                    <tr key={b.member_id} className="border-t border-white/5">
                       <td className="py-1">{b.name}</td>
                       <td className="py-1 text-right">{fmt(b.paid, group.currency)}</td>
                       <td className="py-1 text-right">{fmt(b.owed, group.currency)}</td>
                       <td
                         className={`py-1 text-right font-medium ${
-                          parseFloat(b.net) >= 0 ? "text-green-700" : "text-red-700"
+                          parseFloat(b.net) >= 0 ? "text-emerald-400" : "text-red-300"
                         }`}
                       >
                         {fmt(b.net, group.currency)}
@@ -119,7 +119,7 @@ export default function StatsTab({ group }: { group: Group }) {
           <div className="card">
             <h3 className="mb-2 text-sm font-semibold">Settle up</h3>
             {data.settlements.length === 0 ? (
-              <p className="text-sm text-slate-500">All settled.</p>
+              <p className="text-sm text-slate-400">All settled.</p>
             ) : (
               <ul className="space-y-1 text-sm">
                 {data.settlements.map((t, i) => (

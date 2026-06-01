@@ -94,7 +94,7 @@ export default function SettingsTab({ group }: { group: Group }) {
             Add
           </button>
         </div>
-        <ul className="divide-y divide-slate-100">
+        <ul className="divide-y divide-white/5">
           {members.map((m) => (
             <li key={m.id} className="flex items-center gap-2 py-2">
               <input
@@ -108,23 +108,23 @@ export default function SettingsTab({ group }: { group: Group }) {
               />
               {m.active ? (
                 <button
-                  className="text-xs text-red-600 hover:underline"
+                  className="text-xs text-red-400 hover:underline"
                   onClick={() => removeMember.mutate(m.id)}
                 >
                   remove
                 </button>
               ) : (
-                <span className="text-xs text-slate-500">inactive</span>
+                <span className="text-xs text-slate-400">inactive</span>
               )}
             </li>
           ))}
         </ul>
       </section>
 
-      <section className="card space-y-2 border-red-200">
-        <h3 className="text-sm font-semibold text-red-700">Danger zone</h3>
+      <section className="card space-y-2 border-red-500/30">
+        <h3 className="text-sm font-semibold text-red-300">Danger zone</h3>
         <button
-          className="btn bg-red-600 text-white hover:bg-red-700"
+          className="btn bg-red-500 text-white hover:bg-red-600"
           onClick={() => {
             if (confirm(`Delete group "${group.name}" and all its expenses?`)) deleteGroup.mutate();
           }}

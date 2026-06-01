@@ -50,14 +50,14 @@ export function BalancesOverview({ group }: { group: Group }) {
       </div>
 
       {settled ? (
-        <p className="text-sm text-slate-500">Everyone is square. ✨</p>
+        <p className="text-sm text-slate-400">Everyone is square. ✨</p>
       ) : (
         <ul className="space-y-1 text-sm">
           {data.settlements.map((t, i) => (
             <li key={i} className="flex items-center justify-between">
               <span>
                 <strong>{t.from_name}</strong>
-                <span className="text-slate-500"> owes </span>
+                <span className="text-slate-400"> owes </span>
                 <strong>{t.to_name}</strong>
               </span>
               <span className="font-semibold">{fmt(t.amount, group.currency)}</span>

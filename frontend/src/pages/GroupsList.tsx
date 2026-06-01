@@ -75,23 +75,23 @@ export default function GroupsList() {
       <section className="space-y-2">
         <h2 className="text-lg font-semibold">Your groups</h2>
         {isLoading ? (
-          <p className="text-sm text-slate-500">Loading…</p>
+          <p className="text-sm text-slate-400">Loading…</p>
         ) : groups.length === 0 ? (
-          <p className="text-sm text-slate-500">No groups yet. Create one above.</p>
+          <p className="text-sm text-slate-400">No groups yet. Create one above.</p>
         ) : (
           <ul className="grid gap-2 sm:grid-cols-2">
             {groups.map((g) => (
               <li key={g.id}>
                 <Link
                   to={`/groups/${g.id}`}
-                  className="card block transition hover:border-emerald-500"
+                  className="card block transition hover:border-sky-500"
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-medium">{g.name}</span>
-                    <span className="text-xs text-slate-500">{g.currency}</span>
+                    <span className="text-xs text-slate-400">{g.currency}</span>
                   </div>
                   <div
-                    className="mt-1 text-xs text-slate-500"
+                    className="mt-1 text-xs text-slate-400"
                     title={new Date(g.created_at.endsWith("Z") ? g.created_at : g.created_at + "Z").toLocaleString()}
                   >
                     Created {relativeTime(g.created_at)}

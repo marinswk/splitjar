@@ -126,12 +126,12 @@ export function ShareEditor({ members, shares, onChange }: Props) {
                   onChange={(e) => setPct(m.id, e.target.value)}
                   placeholder="0"
                 />
-                <span className="w-4 text-sm text-slate-500">%</span>
+                <span className="w-4 text-sm text-slate-400">%</span>
               </div>
             );
           })}
       </div>
-      <div className={`text-xs ${totalOk ? "text-slate-500" : "text-red-600"}`}>
+      <div className={`text-xs ${totalOk ? "text-slate-400" : "text-red-400"}`}>
         total: {total.toFixed(2)}%
         {!totalOk && " — must sum to 100"}
       </div>

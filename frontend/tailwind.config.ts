@@ -5,8 +5,8 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Page background — a slightly cooler, paler mint than Tailwind's emerald-50.
-        canvas: "#f1faf5",
+        // Home Assistant-inspired dark palette.
+        canvas: "#111111", // page background
       },
     },
   },

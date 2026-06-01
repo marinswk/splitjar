@@ -20,9 +20,9 @@ export function FormulaInput({ value, onChange, onValue, placeholder }: Props) {
         value={value}
         onChange={(e) => onChange(e.target.value)}
       />
-      <div className="text-xs text-slate-500">
+      <div className="text-xs text-slate-400">
         {computed === null ? (
-          <span className="text-red-600">enter a valid number or formula</span>
+          <span className="text-red-400">enter a valid number or formula</span>
         ) : (
           <span>= {computed.toFixed(2)}</span>
         )}

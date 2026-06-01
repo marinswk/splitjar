@@ -11,22 +11,22 @@ export default function GroupHome() {
   const { data: group } = useQuery({ queryKey: ["group", gid], queryFn: () => api.getGroup(gid) });
 
   if (!group) {
-    return <p className="text-sm text-slate-500">Loading…</p>;
+    return <p className="text-sm text-slate-400">Loading…</p>;
   }
 
   const tab = "rounded-md px-3 py-2 text-sm font-medium";
-  const active = "bg-emerald-100 text-slate-800";
-  const inactive = "text-slate-500 hover:bg-slate-100";
+  const active = "bg-amber-500/15 text-slate-100";
+  const inactive = "text-slate-400 hover:bg-white/5";
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold">{group.name}</h1>
-          <p className="text-xs text-slate-500">{group.currency}</p>
+          <p className="text-xs text-slate-400">{group.currency}</p>
         </div>
       </div>
-      <nav className="flex gap-1 border-b border-slate-200 pb-1">
+      <nav className="flex gap-1 border-b border-white/10 pb-1">
         <NavLink end to={`/groups/${gid}`} className={({ isActive }) => `${tab} ${isActive ? active : inactive}`}>
           Expenses
         </NavLink>
