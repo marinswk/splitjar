@@ -9,7 +9,7 @@ import {
 } from "../api/client";
 import { FormulaInput } from "../components/FormulaInput";
 import { ShareEditor, type ShareDraft } from "../components/ShareEditor";
-import { MonthPicker } from "../components/MonthPicker";
+import { PeriodFilter } from "../components/PeriodFilter";
 import { BalancesOverview } from "../components/BalancesOverview";
 
 const PAGE_SIZE = 100;
@@ -34,44 +34,47 @@ function fmtMoney(amount: string | number, currency: string): string {
 
 const today = new Date().toISOString().slice(0, 10);
 
+type SplitSummary =
+  | { kind: "everyone"; each: string }
+  | { kind: "equal-subset"; names: string[]; each: string }
+  | { kind: "uneven"; entries: { name: string; amount: string }[] }
+  | { kind: "uneven-many"; count: number; entries: { name: string; amount: string }[] };
+
 function describeShares(
   expense: Expense,
   members: Member[],
   activeMemberCount: number,
-): { forWhom: string; each: string | null } {
+): SplitSummary {
   const shares = expense.shares;
   const total = parseFloat(expense.amount);
   const allEqual =
     shares.length >= 2 &&
     shares.every(
-      (s) => Math.abs(parseFloat(s.percentage) - parseFloat(shares[0].percentage)) < 0.05,
+      (s) =>
+        Math.abs(parseFloat(s.percentage) - parseFloat(shares[0].percentage)) < 0.05,
     );
-  const coversEveryone = shares.length === activeMemberCount && allEqual;
 
-  const each =
-    allEqual && shares.length > 1 ? (total / shares.length).toFixed(2) : null;
+  const nameOf = (id: number) => members.find((m) => m.id === id)?.name ?? "?";
 
-  if (coversEveryone) return { forWhom: "Everyone", each };
-  if (shares.length === 1) {
-    return {
-      forWhom: members.find((m) => m.id === shares[0].member_id)?.name ?? "?",
-      each: null,
-    };
+  if (allEqual) {
+    const each = (total / shares.length).toFixed(2);
+    if (shares.length === activeMemberCount) return { kind: "everyone", each };
+    return { kind: "equal-subset", names: shares.map((s) => nameOf(s.member_id)), each };
   }
-  if (shares.length <= 3) {
-    const names = shares
-      .map((s) => members.find((m) => m.id === s.member_id)?.name ?? "?")
-      .join(", ");
-    return { forWhom: names, each };
-  }
-  return { forWhom: `${shares.length} people`, each };
+
+  const entries = shares.map((s) => ({
+    name: nameOf(s.member_id),
+    amount: ((total * parseFloat(s.percentage)) / 100).toFixed(2),
+  }));
+  if (entries.length <= 3) return { kind: "uneven", entries };
+  return { kind: "uneven-many", count: entries.length, entries };
 }
 
 export default function ExpensesTab({ group }: { group: Group }) {
   const qc = useQueryClient();
 
   const now = new Date();
-  const [filterEnabled, setFilterEnabled] = useState(false);
+  const [mode, setMode] = useState<"all" | "month">("all");
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [page, setPage] = useState(0);
@@ -82,8 +85,8 @@ export default function ExpensesTab({ group }: { group: Group }) {
   });
 
   const queryParams = {
-    year: filterEnabled ? year : undefined,
-    month: filterEnabled ? month : undefined,
+    year: mode === "month" ? year : undefined,
+    month: mode === "month" ? month : undefined,
     limit: PAGE_SIZE,
     offset: page * PAGE_SIZE,
   };
@@ -99,12 +102,14 @@ export default function ExpensesTab({ group }: { group: Group }) {
 
   useEffect(() => {
     setPage(0);
-  }, [filterEnabled, year, month]);
+  }, [mode, year, month]);
 
   const memberName = (id: number) => members.find((m) => m.id === id)?.name ?? "?";
   const activeMembers = useMemo(() => members.filter((m) => m.active), [members]);
 
+  // --- Expense form (create OR edit) ---
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [amount, setAmount] = useState("");
   const [amountValue, setAmountValue] = useState<number | null>(null);
   const [description, setDescription] = useState("");
@@ -113,12 +118,35 @@ export default function ExpensesTab({ group }: { group: Group }) {
   const [shares, setShares] = useState<ShareDraft[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (showForm && shares.length === 0 && activeMembers.length > 0) {
-      setShares(equalShares(members));
-      if (payerId === null) setPayerId(activeMembers[0].id);
-    }
-  }, [showForm, activeMembers.length]);
+  const openNew = () => {
+    setEditingId(null);
+    setAmount("");
+    setAmountValue(null);
+    setDescription("");
+    setDate(today);
+    setPayerId(activeMembers.length ? activeMembers[0].id : null);
+    setShares(equalShares(members));
+    setError(null);
+    setShowForm(true);
+  };
+
+  const openEdit = (e: Expense) => {
+    setEditingId(e.id);
+    setAmount(e.amount);
+    setAmountValue(parseFloat(e.amount));
+    setDescription(e.description);
+    setDate(e.date);
+    setPayerId(e.payer_id);
+    setShares(e.shares.map((s) => ({ member_id: s.member_id, percentage: parseFloat(s.percentage).toFixed(2) })));
+    setError(null);
+    setShowForm(true);
+  };
+
+  const closeForm = () => {
+    setShowForm(false);
+    setEditingId(null);
+    setError(null);
+  };
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["transactions", group.id] });
@@ -126,27 +154,26 @@ export default function ExpensesTab({ group }: { group: Group }) {
     qc.invalidateQueries({ queryKey: ["stats-alltime", group.id] });
   };
 
-  const create = useMutation({
+  const save = useMutation({
     mutationFn: async () => {
       if (!payerId) throw new Error("pick a payer");
       if (amountValue === null || amountValue <= 0) throw new Error("invalid amount");
       const t = shares.reduce((a, s) => a + (parseFloat(s.percentage) || 0), 0);
-      if (Math.abs(t - 100) > 0.01) throw new Error("shares must sum to 100%");
-      return api.createExpense(group.id, {
+      if (Math.abs(t - 100) > 0.05) throw new Error("shares must sum to 100%");
+      const body = {
         payer_id: payerId,
         amount: amountValue.toFixed(2),
         description,
         date,
         shares,
-      });
+      };
+      return editingId !== null
+        ? api.updateExpense(editingId, body)
+        : api.createExpense(group.id, body);
     },
     onSuccess: () => {
       invalidate();
-      setShowForm(false);
-      setAmount("");
-      setDescription("");
-      setShares([]);
-      setError(null);
+      closeForm();
     },
     onError: (e: Error) => setError(e.message),
   });
@@ -168,30 +195,19 @@ export default function ExpensesTab({ group }: { group: Group }) {
       {activeMembers.length > 0 && <BalancesOverview group={group} />}
 
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="inline-flex items-center gap-2 text-sm text-jar-600">
-            <input
-              type="checkbox"
-              className="rounded border-jar-200"
-              checked={filterEnabled}
-              onChange={(e) => setFilterEnabled(e.target.checked)}
-            />
-            Filter by month
-          </label>
-          {filterEnabled && (
-            <MonthPicker
-              year={year}
-              month={month}
-              onChange={(y, m) => {
-                setYear(y);
-                setMonth(m);
-              }}
-            />
-          )}
-        </div>
+        <PeriodFilter
+          mode={mode}
+          onModeChange={setMode}
+          year={year}
+          month={month}
+          onMonthChange={(y, m) => {
+            setYear(y);
+            setMonth(m);
+          }}
+        />
         <button
           className="btn-primary"
-          onClick={() => setShowForm((v) => !v)}
+          onClick={() => (showForm ? closeForm() : openNew())}
           disabled={!activeMembers.length}
         >
           {showForm ? "Cancel" : "+ Add expense"}
@@ -206,6 +222,11 @@ export default function ExpensesTab({ group }: { group: Group }) {
 
       {showForm && (
         <div className="card space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold">
+              {editingId !== null ? "Edit expense" : "New expense"}
+            </h3>
+          </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <label className="label">Amount</label>
@@ -249,9 +270,12 @@ export default function ExpensesTab({ group }: { group: Group }) {
             </div>
           </div>
           {error && <p className="text-sm text-red-600">{error}</p>}
-          <div className="flex justify-end">
-            <button className="btn-primary" disabled={create.isPending} onClick={() => create.mutate()}>
-              Save expense
+          <div className="flex justify-end gap-2">
+            <button type="button" className="btn-ghost" onClick={closeForm}>
+              Cancel
+            </button>
+            <button className="btn-primary" disabled={save.isPending} onClick={() => save.mutate()}>
+              {editingId !== null ? "Save changes" : "Save expense"}
             </button>
           </div>
         </div>
@@ -259,12 +283,12 @@ export default function ExpensesTab({ group }: { group: Group }) {
 
       {items.length === 0 ? (
         <p className="card text-sm text-jar-600">
-          {filterEnabled ? "No transactions in this month." : "No transactions yet."}
+          {mode === "month" ? "No transactions in this month." : "No transactions yet."}
         </p>
       ) : (
         <>
           <div className="card overflow-x-auto p-0">
-            <table className="w-full min-w-[600px] text-sm">
+            <table className="w-full min-w-[640px] text-sm">
               <thead className="bg-jar-100 text-left text-xs uppercase tracking-wide text-jar-600">
                 <tr>
                   <th className="px-3 py-2 font-medium">When</th>
@@ -284,6 +308,7 @@ export default function ExpensesTab({ group }: { group: Group }) {
                       members={members}
                       activeMemberCount={activeMembers.length}
                       currency={group.currency}
+                      onEdit={() => openEdit(row)}
                       onDelete={() => {
                         if (confirm("Delete this expense?")) delExpense.mutate(row.id);
                       }}
@@ -336,11 +361,63 @@ export default function ExpensesTab({ group }: { group: Group }) {
   );
 }
 
+function SplitCell({
+  summary,
+  currency,
+}: {
+  summary: SplitSummary;
+  currency: string;
+}) {
+  if (summary.kind === "everyone") {
+    return (
+      <div>
+        <span>Everyone</span>
+        <span className="ml-1 text-xs text-jar-600">
+          ({fmtMoney(summary.each, currency)} each)
+        </span>
+      </div>
+    );
+  }
+  if (summary.kind === "equal-subset") {
+    return (
+      <div>
+        <span>{summary.names.join(", ")}</span>
+        <span className="ml-1 text-xs text-jar-600">
+          ({fmtMoney(summary.each, currency)} each)
+        </span>
+      </div>
+    );
+  }
+  if (summary.kind === "uneven") {
+    return (
+      <div className="space-y-0.5">
+        {summary.entries.map((e, i) => (
+          <div key={i} className="text-xs">
+            <span className="text-jar-800">{e.name}</span>
+            <span className="ml-1 text-jar-600">{fmtMoney(e.amount, currency)}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return (
+    <div
+      className="text-jar-600"
+      title={summary.entries
+        .map((e) => `${e.name}: ${fmtMoney(e.amount, currency)}`)
+        .join("\n")}
+    >
+      {summary.count} people (custom split)
+    </div>
+  );
+}
+
 function ExpenseRowView({
   expense,
   members,
   activeMemberCount,
   currency,
+  onEdit,
   onDelete,
   memberName,
 }: {
@@ -348,26 +425,35 @@ function ExpenseRowView({
   members: Member[];
   activeMemberCount: number;
   currency: string;
+  onEdit: () => void;
   onDelete: () => void;
   memberName: (id: number) => string;
 }) {
-  const { forWhom, each } = describeShares(expense, members, activeMemberCount);
+  const summary = describeShares(expense, members, activeMemberCount);
   return (
     <tr className="hover:bg-jar-50">
-      <td className="whitespace-nowrap px-3 py-2 text-jar-600">{expense.date}</td>
-      <td className="whitespace-nowrap px-3 py-2 font-medium">{memberName(expense.payer_id)}</td>
-      <td className="px-3 py-2">{expense.description || <span className="text-jar-600">—</span>}</td>
-      <td className="px-3 py-2 text-jar-600">{forWhom}</td>
-      <td className="whitespace-nowrap px-3 py-2 text-right font-semibold">
-        {fmtMoney(expense.amount, currency)}
-        {each && (
-          <span className="ml-1 text-xs font-normal text-jar-600">({fmtMoney(each, currency)} each)</span>
-        )}
+      <td className="whitespace-nowrap px-3 py-2 align-top text-jar-600">{expense.date}</td>
+      <td className="whitespace-nowrap px-3 py-2 align-top font-medium">
+        {memberName(expense.payer_id)}
       </td>
-      <td className="whitespace-nowrap px-3 py-2 text-right">
-        <button className="text-xs text-red-600 hover:underline" onClick={onDelete}>
-          delete
-        </button>
+      <td className="px-3 py-2 align-top">
+        {expense.description || <span className="text-jar-600">—</span>}
+      </td>
+      <td className="px-3 py-2 align-top">
+        <SplitCell summary={summary} currency={currency} />
+      </td>
+      <td className="whitespace-nowrap px-3 py-2 align-top text-right font-semibold">
+        {fmtMoney(expense.amount, currency)}
+      </td>
+      <td className="whitespace-nowrap px-3 py-2 align-top text-right">
+        <div className="flex justify-end gap-3">
+          <button className="text-xs text-jar-600 hover:underline" onClick={onEdit}>
+            edit
+          </button>
+          <button className="text-xs text-red-600 hover:underline" onClick={onDelete}>
+            delete
+          </button>
+        </div>
       </td>
     </tr>
   );
@@ -386,20 +472,22 @@ function SettlementRowView({
 }) {
   return (
     <tr className="bg-jar-50/50 hover:bg-jar-50">
-      <td className="whitespace-nowrap px-3 py-2 text-jar-600">{settlement.date}</td>
-      <td className="whitespace-nowrap px-3 py-2 font-medium">{memberName(settlement.from_member_id)}</td>
-      <td className="px-3 py-2">
+      <td className="whitespace-nowrap px-3 py-2 align-top text-jar-600">{settlement.date}</td>
+      <td className="whitespace-nowrap px-3 py-2 align-top font-medium">
+        {memberName(settlement.from_member_id)}
+      </td>
+      <td className="px-3 py-2 align-top">
         <span className="rounded-full bg-jar-200 px-2 py-0.5 text-xs font-medium text-jar-800">
           ⇋ Settlement
         </span>
       </td>
-      <td className="whitespace-nowrap px-3 py-2 text-jar-600">
+      <td className="whitespace-nowrap px-3 py-2 align-top text-jar-600">
         {memberName(settlement.to_member_id)}
       </td>
-      <td className="whitespace-nowrap px-3 py-2 text-right font-semibold">
+      <td className="whitespace-nowrap px-3 py-2 align-top text-right font-semibold">
         {fmtMoney(settlement.amount, currency)}
       </td>
-      <td className="whitespace-nowrap px-3 py-2 text-right">
+      <td className="whitespace-nowrap px-3 py-2 align-top text-right">
         <button className="text-xs text-red-600 hover:underline" onClick={onDelete}>
           delete
         </button>

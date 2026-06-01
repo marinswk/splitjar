@@ -18,21 +18,23 @@ def _add_expense(app_client, g, payer, date, amount="10"):
     ).json()
 
 
-def test_transactions_paginated_sorted(app_client):
-    g, a, b = _bootstrap(app_client)
-    for d in ("2026-01-15", "2026-06-15", "2026-06-20", "2026-03-01"):
+def test_transactions_paginated_sorted_by_creation(app_client):
+    g, a, _ = _bootstrap(app_client)
+    # Insertion order matters; expense.date is the user-picked day and can be
+    # any past day. The list reflects what was added when.
+    dates = ("2026-01-15", "2026-06-20", "2026-03-01", "2026-06-15")
+    for d in dates:
         _add_expense(app_client, g, a, d)
 
     page = app_client.get(f"/api/groups/{g['id']}/transactions?limit=2&offset=0").json()
     assert page["total"] == 4
     assert page["limit"] == 2
     assert page["offset"] == 0
-    assert len(page["items"]) == 2
-    assert page["items"][0]["date"] == "2026-06-20"
-    assert page["items"][1]["date"] == "2026-06-15"
+    # Most recently added rows first.
+    assert [i["date"] for i in page["items"]] == ["2026-06-15", "2026-03-01"]
 
     page2 = app_client.get(f"/api/groups/{g['id']}/transactions?limit=2&offset=2").json()
-    assert [i["date"] for i in page2["items"]] == ["2026-03-01", "2026-01-15"]
+    assert [i["date"] for i in page2["items"]] == ["2026-06-20", "2026-01-15"]
 
 
 def test_transactions_month_filter(app_client):

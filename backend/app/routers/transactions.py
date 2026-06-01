@@ -51,14 +51,14 @@ def list_transactions(
     expenses = session.exec(exp_stmt).all()
     settlements = session.exec(set_stmt).all()
 
-    items: list[tuple[str, TransactionExpense | TransactionSettlement]] = []
+    items: list[tuple[tuple, TransactionExpense | TransactionSettlement]] = []
     for e in expenses:
         shares = session.exec(
             select(ExpenseShare).where(ExpenseShare.expense_id == e.id)
         ).all()
         items.append(
             (
-                f"{e.date.isoformat()}-e-{e.id:08d}",
+                (e.created_at, e.id, "e"),
                 TransactionExpense(
                     id=e.id,
                     group_id=e.group_id,
@@ -77,7 +77,7 @@ def list_transactions(
     for s in settlements:
         items.append(
             (
-                f"{s.date.isoformat()}-s-{s.id:08d}",
+                (s.created_at, s.id, "s"),
                 TransactionSettlement(
                     id=s.id,
                     group_id=s.group_id,
@@ -90,6 +90,7 @@ def list_transactions(
             )
         )
 
+    # Newest-added first: settlements interleave with expenses in insertion order.
     items.sort(key=lambda kv: kv[0], reverse=True)
     total = len(items)
     page = [v for _, v in items[offset : offset + limit]]
