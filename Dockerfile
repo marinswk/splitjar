@@ -15,7 +15,7 @@ WORKDIR /build
 COPY backend/pyproject.toml ./
 RUN pip install --upgrade pip && pip install \
     "fastapi>=0.115" "uvicorn[standard]>=0.32" "sqlmodel>=0.0.22" \
-    "alembic>=1.13" "pydantic>=2.9"
+    "alembic>=1.13" "pydantic>=2.9" "greenlet>=3.0"
 
 # --- Test stage (used by CI) ---
 FROM backend-builder AS test

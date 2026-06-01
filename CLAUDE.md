@@ -12,7 +12,7 @@ splitjar is a single-container, no-auth expense-sharing app. FastAPI + SQLite on
 - **One container.** Don't split into multiple services. The frontend gets built in stage 1 and served as static files by FastAPI in the runtime stage.
 - **No multi-currency conversion.** Currency is a per-group string, displayed via `Intl.NumberFormat`. Don't pull in conversion APIs.
 - **SQLite only.** No Postgres support. WAL mode is on; `/data` is the only writable volume.
-- **No formal migrations yet** — schema is created via `SQLModel.metadata.create_all` at startup. If you change models, plan an Alembic introduction in the same PR.
+- **Alembic migrations** live in `backend/app/alembic/versions/`. The app runs `alembic upgrade head` on startup (and in tests). If you change `models.py`, generate a new revision: `cd backend && alembic revision --autogenerate -m "describe change"`, then review and commit it.
 
 ## Where things live
 

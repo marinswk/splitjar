@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Optional
 
@@ -13,7 +13,7 @@ class Group(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str
     currency: str = Field(default="EUR", max_length=3)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class Member(SQLModel, table=True):
@@ -30,7 +30,7 @@ class Expense(SQLModel, table=True):
     amount: Decimal = Field(max_digits=12, decimal_places=2)
     description: str = ""
     date: date
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class ExpenseShare(SQLModel, table=True):

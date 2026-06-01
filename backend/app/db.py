@@ -33,8 +33,16 @@ def _sqlite_pragmas(dbapi_conn, _):  # noqa: ANN001
     cur.close()
 
 
-def init_db() -> None:
-    SQLModel.metadata.create_all(engine)
+def run_migrations() -> None:
+    """Run Alembic migrations up to head against the configured DB URL."""
+    from alembic import command
+    from alembic.config import Config
+
+    backend_root = Path(__file__).resolve().parent.parent
+    cfg = Config(str(backend_root / "alembic.ini"))
+    cfg.set_main_option("script_location", str(backend_root / "app" / "alembic"))
+    cfg.set_main_option("sqlalchemy.url", _db_url())
+    command.upgrade(cfg, "head")
 
 
 def get_session() -> Iterator[Session]:

@@ -1,22 +1,25 @@
 from __future__ import annotations
 
 import os
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from app.db import init_db
+from app.db import run_migrations
 from app.routers import expenses, formula, groups, members, stats
 
 
-def create_app() -> FastAPI:
-    app = FastAPI(title="splitjar", version="0.1.0")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    run_migrations()
+    yield
 
-    @app.on_event("startup")
-    def _startup() -> None:
-        init_db()
+
+def create_app() -> FastAPI:
+    app = FastAPI(title="splitjar", version="0.1.0", lifespan=lifespan)
 
     @app.middleware("http")
     async def frame_ancestors(request: Request, call_next):
@@ -26,7 +29,8 @@ def create_app() -> FastAPI:
             "'self' http://homeassistant.local:8123 http://*.local:8123",
         )
         response.headers["Content-Security-Policy"] = f"frame-ancestors {fa}"
-        response.headers.pop("X-Frame-Options", None)
+        if "x-frame-options" in response.headers:
+            del response.headers["x-frame-options"]
         return response
 
     @app.get("/api/health")

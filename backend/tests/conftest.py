@@ -20,7 +20,7 @@ def app_client(monkeypatch):
     importlib.reload(db_mod)
     import app.models  # noqa: F401  ensure models registered
 
-    db_mod.init_db()
+    db_mod.run_migrations()
 
     from fastapi.testclient import TestClient
 
