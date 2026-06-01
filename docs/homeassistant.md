@@ -8,7 +8,7 @@ The Home Assistant host needs to be able to open splitjar's URL. The simplest se
 
 ```bash
 docker run -d --name splitjar \
-  -p 8000:8000 \
+  -p 8473:8473 \
   -v splitjar_data:/data \
   ghcr.io/marinswk/splitjar:latest
 ```
@@ -33,7 +33,7 @@ panel_iframe:
   splitjar:
     title: "Splitjar"
     icon: mdi:cash-multiple
-    url: "http://homeassistant.local:8000"
+    url: "http://homeassistant.local:8473"
     require_admin: false
 ```
 

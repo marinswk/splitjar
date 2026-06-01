@@ -48,7 +48,7 @@ cd splitjar
 docker compose up -d
 ```
 
-Open <http://localhost:8000>.
+Open <http://localhost:8473>.
 
 Data is persisted in the `splitjar_data` Docker volume at `/data/splitjar.db`.
 
@@ -56,7 +56,7 @@ Data is persisted in the `splitjar_data` Docker volume at `/data/splitjar.db`.
 
 ```bash
 docker run -d --name splitjar \
-  -p 8000:8000 \
+  -p 8473:8473 \
   -v splitjar_data:/data \
   ghcr.io/marinswk/splitjar:latest
 ```
@@ -70,7 +70,7 @@ panel_iframe:
   splitjar:
     title: "Splitjar"
     icon: mdi:cash-multiple
-    url: "http://homeassistant.local:8000"
+    url: "http://homeassistant.local:8473"
     require_admin: false
 ```
 
@@ -131,7 +131,7 @@ python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 SPLITJAR_DATA_DIR=./data uvicorn app.main:app --reload
 
-# Frontend (separate terminal — proxies /api to :8000)
+# Frontend (separate terminal — proxies /api to :8473)
 cd frontend
 npm install
 npm run dev
