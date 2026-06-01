@@ -1,0 +1,30 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-medium transition-colors;
+  }
+  .btn-primary {
+    @apply btn bg-jar-600 text-white hover:bg-jar-800;
+  }
+  .btn-ghost {
+    @apply btn text-jar-800 hover:bg-jar-100;
+  }
+  .card {
+    @apply rounded-xl border border-jar-200 bg-white p-4 shadow-sm;
+  }
+  .input {
+    @apply w-full rounded-md border border-jar-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-jar-400;
+  }
+  .label {
+    @apply mb-1 block text-xs font-medium uppercase tracking-wide text-jar-600;
+  }
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}

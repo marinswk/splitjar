@@ -1,0 +1,20 @@
+services:
+  splitjar:
+    build: .
+    image: ghcr.io/marinswk/splitjar:latest
+    container_name: splitjar
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - splitjar_data:/data
+    env_file:
+      - .env
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  splitjar_data:

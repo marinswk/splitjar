@@ -1,0 +1,62 @@
+from __future__ import annotations
+
+import os
+from pathlib import Path
+
+from fastapi import FastAPI, Request
+from fastapi.responses import FileResponse, Response
+from fastapi.staticfiles import StaticFiles
+
+from app.db import init_db
+from app.routers import expenses, formula, groups, members, stats
+
+
+def create_app() -> FastAPI:
+    app = FastAPI(title="splitjar", version="0.1.0")
+
+    @app.on_event("startup")
+    def _startup() -> None:
+        init_db()
+
+    @app.middleware("http")
+    async def frame_ancestors(request: Request, call_next):
+        response: Response = await call_next(request)
+        fa = os.environ.get(
+            "SPLITJAR_FRAME_ANCESTORS",
+            "'self' http://homeassistant.local:8123 http://*.local:8123",
+        )
+        response.headers["Content-Security-Policy"] = f"frame-ancestors {fa}"
+        response.headers.pop("X-Frame-Options", None)
+        return response
+
+    @app.get("/api/health")
+    def health():
+        return {"status": "ok"}
+
+    app.include_router(groups.router)
+    app.include_router(members.router)
+    app.include_router(expenses.router)
+    app.include_router(stats.router)
+    app.include_router(formula.router)
+
+    static_dir = Path(os.environ.get("SPLITJAR_STATIC_DIR", "/app/static"))
+    if static_dir.exists():
+        index_file = static_dir / "index.html"
+
+        app.mount(
+            "/assets",
+            StaticFiles(directory=static_dir / "assets"),
+            name="assets",
+        )
+
+        @app.get("/{full_path:path}", include_in_schema=False)
+        def spa(full_path: str):
+            candidate = static_dir / full_path
+            if full_path and candidate.is_file():
+                return FileResponse(candidate)
+            return FileResponse(index_file)
+
+    return app
+
+
+app = create_app()
