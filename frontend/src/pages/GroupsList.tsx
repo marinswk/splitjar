@@ -5,6 +5,19 @@ import { api } from "../api/client";
 
 const COMMON_CURRENCIES = ["EUR", "USD", "GBP", "CHF", "CAD", "AUD", "JPY", "SEK", "NOK", "DKK", "CZK", "PLN"];
 
+function relativeTime(iso: string): string {
+  // Backend serializes naive UTC, e.g. "2026-06-01T16:12:21.040223". Treat it as UTC.
+  const isoUtc = iso.endsWith("Z") || /[+-]\d{2}:?\d{2}$/.test(iso) ? iso : iso + "Z";
+  const then = new Date(isoUtc).getTime();
+  const diff = Date.now() - then;
+  const min = 60_000, hr = 60 * min, day = 24 * hr;
+  if (diff < min) return "just now";
+  if (diff < hr) return `${Math.floor(diff / min)} min ago`;
+  if (diff < day) return `${Math.floor(diff / hr)} h ago`;
+  if (diff < 30 * day) return `${Math.floor(diff / day)} days ago`;
+  return new Date(isoUtc).toLocaleDateString();
+}
+
 export default function GroupsList() {
   const qc = useQueryClient();
   const { data: groups = [], isLoading } = useQuery({ queryKey: ["groups"], queryFn: api.listGroups });
@@ -76,6 +89,12 @@ export default function GroupsList() {
                   <div className="flex items-center justify-between">
                     <span className="font-medium">{g.name}</span>
                     <span className="text-xs text-jar-600">{g.currency}</span>
+                  </div>
+                  <div
+                    className="mt-1 text-xs text-jar-600"
+                    title={new Date(g.created_at.endsWith("Z") ? g.created_at : g.created_at + "Z").toLocaleString()}
+                  >
+                    Created {relativeTime(g.created_at)}
                   </div>
                 </Link>
               </li>

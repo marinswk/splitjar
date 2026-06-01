@@ -9,7 +9,8 @@ services:
     volumes:
       - splitjar_data:/data
     env_file:
-      - .env
+      - path: .env
+        required: false
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8000/api/health"]
       interval: 30s
