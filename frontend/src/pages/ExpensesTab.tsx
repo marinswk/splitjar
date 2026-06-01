@@ -12,6 +12,8 @@ import { ShareEditor, type ShareDraft } from "../components/ShareEditor";
 import { MonthPicker } from "../components/MonthPicker";
 import { BalancesOverview } from "../components/BalancesOverview";
 
+const PAGE_SIZE = 100;
+
 function equalShares(members: Member[]): ShareDraft[] {
   const active = members.filter((m) => m.active);
   if (!active.length) return [];
@@ -32,10 +34,6 @@ function fmtMoney(amount: string | number, currency: string): string {
 
 const today = new Date().toISOString().slice(0, 10);
 
-type ExpenseRow = { kind: "expense"; date: string; sortKey: string; data: Expense };
-type SettlementRow = { kind: "settlement"; date: string; sortKey: string; data: SettlementRecord };
-type Row = ExpenseRow | SettlementRow;
-
 function describeShares(
   expense: Expense,
   members: Member[],
@@ -45,7 +43,9 @@ function describeShares(
   const total = parseFloat(expense.amount);
   const allEqual =
     shares.length >= 2 &&
-    shares.every((s) => Math.abs(parseFloat(s.percentage) - parseFloat(shares[0].percentage)) < 0.05);
+    shares.every(
+      (s) => Math.abs(parseFloat(s.percentage) - parseFloat(shares[0].percentage)) < 0.05,
+    );
   const coversEveryone = shares.length === activeMemberCount && allEqual;
 
   const each =
@@ -53,7 +53,10 @@ function describeShares(
 
   if (coversEveryone) return { forWhom: "Everyone", each };
   if (shares.length === 1) {
-    return { forWhom: members.find((m) => m.id === shares[0].member_id)?.name ?? "?", each: null };
+    return {
+      forWhom: members.find((m) => m.id === shares[0].member_id)?.name ?? "?",
+      each: null,
+    };
   }
   if (shares.length <= 3) {
     const names = shares
@@ -66,44 +69,40 @@ function describeShares(
 
 export default function ExpensesTab({ group }: { group: Group }) {
   const qc = useQueryClient();
+
   const now = new Date();
+  const [filterEnabled, setFilterEnabled] = useState(false);
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
+  const [page, setPage] = useState(0);
 
   const { data: members = [] } = useQuery({
     queryKey: ["members", group.id],
     queryFn: () => api.listMembers(group.id),
   });
-  const { data: expenses = [] } = useQuery({
-    queryKey: ["expenses", group.id, year, month],
-    queryFn: () => api.listExpenses(group.id, year, month),
+
+  const queryParams = {
+    year: filterEnabled ? year : undefined,
+    month: filterEnabled ? month : undefined,
+    limit: PAGE_SIZE,
+    offset: page * PAGE_SIZE,
+  };
+
+  const { data: txPage } = useQuery({
+    queryKey: ["transactions", group.id, queryParams],
+    queryFn: () => api.listTransactions(group.id, queryParams),
   });
-  const { data: settlements = [] } = useQuery({
-    queryKey: ["settlements", group.id, year, month],
-    queryFn: () => api.listSettlements(group.id, year, month),
-  });
+
+  const total = txPage?.total ?? 0;
+  const items = txPage?.items ?? [];
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  useEffect(() => {
+    setPage(0);
+  }, [filterEnabled, year, month]);
 
   const memberName = (id: number) => members.find((m) => m.id === id)?.name ?? "?";
   const activeMembers = useMemo(() => members.filter((m) => m.active), [members]);
-
-  const rows: Row[] = useMemo(() => {
-    const all: Row[] = [
-      ...expenses.map<ExpenseRow>((e) => ({
-        kind: "expense",
-        date: e.date,
-        sortKey: `${e.date}-e-${String(e.id).padStart(8, "0")}`,
-        data: e,
-      })),
-      ...settlements.map<SettlementRow>((s) => ({
-        kind: "settlement",
-        date: s.date,
-        sortKey: `${s.date}-s-${String(s.id).padStart(8, "0")}`,
-        data: s,
-      })),
-    ];
-    all.sort((a, b) => (a.sortKey < b.sortKey ? 1 : -1));
-    return all;
-  }, [expenses, settlements]);
 
   const [showForm, setShowForm] = useState(false);
   const [amount, setAmount] = useState("");
@@ -122,8 +121,7 @@ export default function ExpensesTab({ group }: { group: Group }) {
   }, [showForm, activeMembers.length]);
 
   const invalidate = () => {
-    qc.invalidateQueries({ queryKey: ["expenses", group.id] });
-    qc.invalidateQueries({ queryKey: ["settlements", group.id] });
+    qc.invalidateQueries({ queryKey: ["transactions", group.id] });
     qc.invalidateQueries({ queryKey: ["stats", group.id] });
     qc.invalidateQueries({ queryKey: ["stats-alltime", group.id] });
   };
@@ -132,8 +130,8 @@ export default function ExpensesTab({ group }: { group: Group }) {
     mutationFn: async () => {
       if (!payerId) throw new Error("pick a payer");
       if (amountValue === null || amountValue <= 0) throw new Error("invalid amount");
-      const total = shares.reduce((a, s) => a + (parseFloat(s.percentage) || 0), 0);
-      if (Math.abs(total - 100) > 0.01) throw new Error("shares must sum to 100%");
+      const t = shares.reduce((a, s) => a + (parseFloat(s.percentage) || 0), 0);
+      if (Math.abs(t - 100) > 0.01) throw new Error("shares must sum to 100%");
       return api.createExpense(group.id, {
         payer_id: payerId,
         amount: amountValue.toFixed(2),
@@ -162,12 +160,35 @@ export default function ExpensesTab({ group }: { group: Group }) {
     onSuccess: invalidate,
   });
 
+  const showingFrom = total === 0 ? 0 : page * PAGE_SIZE + 1;
+  const showingTo = Math.min(total, (page + 1) * PAGE_SIZE);
+
   return (
     <div className="space-y-4">
       {activeMembers.length > 0 && <BalancesOverview group={group} />}
 
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <MonthPicker year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); }} />
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="inline-flex items-center gap-2 text-sm text-jar-600">
+            <input
+              type="checkbox"
+              className="rounded border-jar-200"
+              checked={filterEnabled}
+              onChange={(e) => setFilterEnabled(e.target.checked)}
+            />
+            Filter by month
+          </label>
+          {filterEnabled && (
+            <MonthPicker
+              year={year}
+              month={month}
+              onChange={(y, m) => {
+                setYear(y);
+                setMonth(m);
+              }}
+            />
+          )}
+        </div>
         <button
           className="btn-primary"
           onClick={() => setShowForm((v) => !v)}
@@ -217,7 +238,9 @@ export default function ExpensesTab({ group }: { group: Group }) {
               >
                 <option value="">Choose…</option>
                 {activeMembers.map((m) => (
-                  <option key={m.id} value={m.id}>{m.name}</option>
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
                 ))}
               </select>
             </div>
@@ -234,51 +257,80 @@ export default function ExpensesTab({ group }: { group: Group }) {
         </div>
       )}
 
-      {rows.length === 0 ? (
-        <p className="card text-sm text-jar-600">No expenses or settlements for this month.</p>
+      {items.length === 0 ? (
+        <p className="card text-sm text-jar-600">
+          {filterEnabled ? "No transactions in this month." : "No transactions yet."}
+        </p>
       ) : (
-        <div className="card overflow-x-auto p-0">
-          <table className="w-full min-w-[600px] text-sm">
-            <thead className="bg-jar-100 text-left text-xs uppercase tracking-wide text-jar-600">
-              <tr>
-                <th className="px-3 py-2 font-medium">When</th>
-                <th className="px-3 py-2 font-medium">Who paid</th>
-                <th className="px-3 py-2 font-medium">For what</th>
-                <th className="px-3 py-2 font-medium">For whom</th>
-                <th className="px-3 py-2 text-right font-medium">How much</th>
-                <th className="px-3 py-2 text-right font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-jar-100">
-              {rows.map((row) =>
-                row.kind === "expense" ? (
-                  <ExpenseRowView
-                    key={`e-${row.data.id}`}
-                    expense={row.data}
-                    members={members}
-                    activeMemberCount={activeMembers.length}
-                    currency={group.currency}
-                    onDelete={() => {
-                      if (confirm("Delete this expense?")) delExpense.mutate(row.data.id);
-                    }}
-                    memberName={memberName}
-                  />
-                ) : (
-                  <SettlementRowView
-                    key={`s-${row.data.id}`}
-                    settlement={row.data}
-                    currency={group.currency}
-                    memberName={memberName}
-                    onDelete={() => {
-                      if (confirm("Delete this settlement? The debt will reappear."))
-                        delSettlement.mutate(row.data.id);
-                    }}
-                  />
-                ),
-              )}
-            </tbody>
-          </table>
-        </div>
+        <>
+          <div className="card overflow-x-auto p-0">
+            <table className="w-full min-w-[600px] text-sm">
+              <thead className="bg-jar-100 text-left text-xs uppercase tracking-wide text-jar-600">
+                <tr>
+                  <th className="px-3 py-2 font-medium">When</th>
+                  <th className="px-3 py-2 font-medium">Who paid</th>
+                  <th className="px-3 py-2 font-medium">For what</th>
+                  <th className="px-3 py-2 font-medium">For whom</th>
+                  <th className="px-3 py-2 text-right font-medium">How much</th>
+                  <th className="px-3 py-2 text-right font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-jar-100">
+                {items.map((row) =>
+                  row.kind === "expense" ? (
+                    <ExpenseRowView
+                      key={`e-${row.id}`}
+                      expense={row}
+                      members={members}
+                      activeMemberCount={activeMembers.length}
+                      currency={group.currency}
+                      onDelete={() => {
+                        if (confirm("Delete this expense?")) delExpense.mutate(row.id);
+                      }}
+                      memberName={memberName}
+                    />
+                  ) : (
+                    <SettlementRowView
+                      key={`s-${row.id}`}
+                      settlement={row}
+                      currency={group.currency}
+                      memberName={memberName}
+                      onDelete={() => {
+                        if (confirm("Delete this settlement? The debt will reappear."))
+                          delSettlement.mutate(row.id);
+                      }}
+                    />
+                  ),
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-jar-600">
+            <span>
+              Showing {showingFrom}–{showingTo} of {total}
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                className="btn-ghost text-sm disabled:opacity-40"
+                disabled={page === 0}
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+              >
+                ‹ Prev
+              </button>
+              <span className="px-2">
+                Page {page + 1} of {pages}
+              </span>
+              <button
+                className="btn-ghost text-sm disabled:opacity-40"
+                disabled={page + 1 >= pages}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                Next ›
+              </button>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

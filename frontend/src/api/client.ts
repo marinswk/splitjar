@@ -57,6 +57,17 @@ export type SettlementRecord = {
   created_at: string;
 };
 
+export type TransactionItem =
+  | ({ kind: "expense" } & Expense)
+  | ({ kind: "settlement" } & SettlementRecord);
+
+export type TransactionsPage = {
+  items: TransactionItem[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
 async function http<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
     headers: { "Content-Type": "application/json", ...(init?.headers || {}) },
@@ -129,4 +140,17 @@ export const api = {
   },
   deleteSettlement: (id: number) =>
     http<{ ok: boolean }>(`/api/settlements/${id}`, { method: "DELETE" }),
+
+  listTransactions: (
+    gid: number,
+    opts: { year?: number; month?: number; limit?: number; offset?: number } = {},
+  ) => {
+    const q = new URLSearchParams();
+    if (opts.year) q.set("year", String(opts.year));
+    if (opts.month) q.set("month", String(opts.month));
+    if (opts.limit) q.set("limit", String(opts.limit));
+    if (opts.offset) q.set("offset", String(opts.offset));
+    const qs = q.toString() ? `?${q.toString()}` : "";
+    return http<TransactionsPage>(`/api/groups/${gid}/transactions${qs}`);
+  },
 };

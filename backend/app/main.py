@@ -9,7 +9,15 @@ from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from app.db import run_migrations
-from app.routers import expenses, formula, groups, members, settlements, stats
+from app.routers import (
+    expenses,
+    formula,
+    groups,
+    members,
+    settlements,
+    stats,
+    transactions,
+)
 
 
 @asynccontextmanager
@@ -42,6 +50,7 @@ def create_app() -> FastAPI:
     app.include_router(expenses.router)
     app.include_router(stats.router)
     app.include_router(settlements.router)
+    app.include_router(transactions.router)
     app.include_router(formula.router)
 
     static_dir = Path(os.environ.get("SPLITJAR_STATIC_DIR", "/app/static"))

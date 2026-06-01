@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Literal, Union
 
 from pydantic import BaseModel, Field
 
@@ -92,3 +93,20 @@ class SettlementOut(BaseModel):
     amount: Decimal
     date: date
     created_at: datetime
+
+
+class TransactionExpense(ExpenseOut):
+    kind: Literal["expense"] = "expense"
+
+
+class TransactionSettlement(SettlementOut):
+    kind: Literal["settlement"] = "settlement"
+
+
+class TransactionsPage(BaseModel):
+    items: list[Union[TransactionExpense, TransactionSettlement]] = Field(
+        default_factory=list,
+    )
+    total: int
+    limit: int
+    offset: int
