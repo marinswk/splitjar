@@ -32,11 +32,13 @@ def create_app() -> FastAPI:
     @app.middleware("http")
     async def frame_ancestors(request: Request, call_next):
         response: Response = await call_next(request)
-        fa = os.environ.get(
-            "SPLITJAR_FRAME_ANCESTORS",
-            "'self' http://homeassistant.local:8123 http://*.local:8123",
-        )
-        response.headers["Content-Security-Policy"] = f"frame-ancestors {fa}"
+        # Opt-in frame-ancestors. Default is to set no restriction so the app
+        # embeds cleanly inside whatever reverse proxy / dashboard the user
+        # has — same posture as similar self-hosted dashboards. Users who
+        # want to lock embedding down to a specific origin can set the env.
+        fa = os.environ.get("SPLITJAR_FRAME_ANCESTORS")
+        if fa:
+            response.headers["Content-Security-Policy"] = f"frame-ancestors {fa}"
         if "x-frame-options" in response.headers:
             del response.headers["x-frame-options"]
         return response

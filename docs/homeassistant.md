@@ -13,16 +13,16 @@ docker run -d --name splitjar \
   ghcr.io/marinswk/splitjar:latest
 ```
 
-## 2. Allow your HA host as a frame ancestor
+## 2. (Optional) Lock down who can embed splitjar
 
-splitjar sends `Content-Security-Policy: frame-ancestors …` to control who can embed it. The default allows `http://homeassistant.local:8123` and `http://*.local:8123`. If your HA lives somewhere else, set `SPLITJAR_FRAME_ANCESTORS`:
+By default splitjar sets **no** iframe restrictions, so embedding works from any HA instance you point at it. If you want to restrict embedding to a specific origin, set `SPLITJAR_FRAME_ANCESTORS`:
 
 ```dotenv
 # .env
-SPLITJAR_FRAME_ANCESTORS='self' http://192.168.1.10:8123 https://ha.example.com
+SPLITJAR_FRAME_ANCESTORS='self' https://homeassistant.example.com
 ```
 
-Restart the container.
+Restart the container. Skip this step if you don't need the restriction.
 
 ## 3. Add the panel to HA
 
@@ -41,6 +41,6 @@ Restart Home Assistant. A "Splitjar" entry appears in the sidebar.
 
 ## Troubleshooting
 
-- **Blank panel / "refused to connect"**: your HA host isn't in `frame-ancestors`. Check the browser console for the actual CSP error and update `SPLITJAR_FRAME_ANCESTORS`.
+- **Blank panel / "refused to connect"**: if you set `SPLITJAR_FRAME_ANCESTORS`, your HA origin isn't in the allowlist. Check the browser console for the CSP error and update the env value, or unset it to allow embedding from anywhere.
 - **Mixed-content warning**: if HA is served over HTTPS, splitjar must also be HTTPS. Put it behind your existing reverse proxy.
 - **Permissions / auth**: there is none. Anyone with sidebar access to your HA can use splitjar. That's the trade-off — see [SECURITY.md](../SECURITY.md).

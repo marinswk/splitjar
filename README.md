@@ -74,10 +74,11 @@ panel_iframe:
     require_admin: false
 ```
 
-splitjar already sends `Content-Security-Policy: frame-ancestors 'self' http://homeassistant.local:8123 http://*.local:8123` and does **not** set `X-Frame-Options`, so the iframe works out of the box. If your HA runs on a different host, override the CSP via `.env`:
+splitjar sets **no `X-Frame-Options` and no default `frame-ancestors`**, so the iframe works out of the box no matter where your HA is hosted. If you want to restrict who can embed splitjar, set the optional CSP via `.env`:
 
 ```dotenv
-SPLITJAR_FRAME_ANCESTORS='self' http://192.168.1.10:8123
+# Optional — only set if you want to lock embedding down
+SPLITJAR_FRAME_ANCESTORS='self' https://your-home-assistant.example.com
 ```
 
 See [docs/homeassistant.md](docs/homeassistant.md) for more.
@@ -96,7 +97,7 @@ See [docs/homeassistant.md](docs/homeassistant.md) for more.
 | `SPLITJAR_DATA_DIR` | `/data` | Where the SQLite file lives |
 | `SPLITJAR_DB_URL` | _(from data dir)_ | Override the full SQLAlchemy URL |
 | `SPLITJAR_STATIC_DIR` | `/app/static` | Frontend bundle location |
-| `SPLITJAR_FRAME_ANCESTORS` | `'self' http://homeassistant.local:8123 http://*.local:8123` | CSP `frame-ancestors` |
+| `SPLITJAR_FRAME_ANCESTORS` | _(unset → no restriction)_ | Optional CSP `frame-ancestors` value |
 
 ## Project layout
 

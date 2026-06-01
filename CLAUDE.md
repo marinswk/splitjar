@@ -31,5 +31,5 @@ docker run --rm splitjar-test
 ## Common pitfalls
 
 - The frontend formula parser uses `new Function()` and the backend uses AST walking. They should agree on the same whitelist `[\d.+\-*/()\s]`. If you change one, change the other.
-- `frame-ancestors` is read from `SPLITJAR_FRAME_ANCESTORS` — single space-separated string. Don't quote inner values in `.env`.
+- `frame-ancestors` is opt-in via `SPLITJAR_FRAME_ANCESTORS`. Unset = no CSP header at all, embedding allowed from anywhere. Don't ship a default value — that bakes private hostnames into the open-source defaults.
 - Decimals: backend stores `Decimal(12,2)` and serializes as strings. Don't `parseFloat` server-side; do it only at the display layer.
