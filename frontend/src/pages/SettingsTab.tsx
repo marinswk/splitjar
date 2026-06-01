@@ -94,7 +94,7 @@ export default function SettingsTab({ group }: { group: Group }) {
             Add
           </button>
         </div>
-        <ul className="divide-y divide-jar-100">
+        <ul className="divide-y divide-slate-100">
           {members.map((m) => (
             <li key={m.id} className="flex items-center gap-2 py-2">
               <input
@@ -114,7 +114,7 @@ export default function SettingsTab({ group }: { group: Group }) {
                   remove
                 </button>
               ) : (
-                <span className="text-xs text-jar-600">inactive</span>
+                <span className="text-xs text-slate-500">inactive</span>
               )}
             </li>
           ))}

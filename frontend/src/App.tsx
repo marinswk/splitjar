@@ -6,7 +6,7 @@ export default function App() {
   return (
     <div className="mx-auto flex min-h-full max-w-4xl flex-col">
       <header className="flex items-center justify-between px-4 py-4">
-        <Link to="/" className="flex items-center gap-2 text-xl font-bold text-jar-800">
+        <Link to="/" className="flex items-center gap-2 text-xl font-bold text-emerald-700">
           <span aria-hidden>🫙</span> splitjar
         </Link>
       </header>
@@ -16,7 +16,7 @@ export default function App() {
           <Route path="/groups/:id/*" element={<GroupHome />} />
         </Routes>
       </main>
-      <footer className="px-4 py-4 text-center text-xs text-jar-600">
+      <footer className="px-4 py-4 text-center text-xs text-slate-500">
         splitjar · no accounts · your data stays local
       </footer>
     </div>

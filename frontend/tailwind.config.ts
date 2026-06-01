@@ -5,14 +5,8 @@ export default {
   theme: {
     extend: {
       colors: {
-        jar: {
-          50: "#fdf7ee",
-          100: "#f9ead0",
-          200: "#f1d29c",
-          400: "#dba055",
-          600: "#a86a26",
-          800: "#6b4216",
-        },
+        // Page background — a slightly cooler, paler mint than Tailwind's emerald-50.
+        canvas: "#f1faf5",
       },
     },
   },

@@ -215,7 +215,7 @@ export default function ExpensesTab({ group }: { group: Group }) {
       </div>
 
       {!activeMembers.length && (
-        <p className="card text-sm text-jar-600">
+        <p className="card text-sm text-slate-500">
           Add at least one member in <strong>Settings</strong> before logging expenses.
         </p>
       )}
@@ -282,14 +282,14 @@ export default function ExpensesTab({ group }: { group: Group }) {
       )}
 
       {items.length === 0 ? (
-        <p className="card text-sm text-jar-600">
+        <p className="card text-sm text-slate-500">
           {mode === "month" ? "No transactions in this month." : "No transactions yet."}
         </p>
       ) : (
         <>
           <div className="card overflow-x-auto p-0">
             <table className="w-full min-w-[640px] text-sm">
-              <thead className="bg-jar-100 text-left text-xs uppercase tracking-wide text-jar-600">
+              <thead className="bg-slate-100 text-left text-xs uppercase tracking-wide text-slate-500">
                 <tr>
                   <th className="px-3 py-2 font-medium">When</th>
                   <th className="px-3 py-2 font-medium">Who paid</th>
@@ -299,7 +299,7 @@ export default function ExpensesTab({ group }: { group: Group }) {
                   <th className="px-3 py-2 text-right font-medium">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-jar-100">
+              <tbody className="divide-y divide-slate-100">
                 {items.map((row) =>
                   row.kind === "expense" ? (
                     <ExpenseRowView
@@ -331,7 +331,7 @@ export default function ExpensesTab({ group }: { group: Group }) {
             </table>
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-jar-600">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-slate-500">
             <span>
               Showing {showingFrom}–{showingTo} of {total}
             </span>
@@ -372,7 +372,7 @@ function SplitCell({
     return (
       <div>
         <span>Everyone</span>
-        <span className="ml-1 text-xs text-jar-600">
+        <span className="ml-1 text-xs text-slate-500">
           ({fmtMoney(summary.each, currency)} each)
         </span>
       </div>
@@ -382,7 +382,7 @@ function SplitCell({
     return (
       <div>
         <span>{summary.names.join(", ")}</span>
-        <span className="ml-1 text-xs text-jar-600">
+        <span className="ml-1 text-xs text-slate-500">
           ({fmtMoney(summary.each, currency)} each)
         </span>
       </div>
@@ -393,8 +393,8 @@ function SplitCell({
       <div className="space-y-0.5">
         {summary.entries.map((e, i) => (
           <div key={i} className="text-xs">
-            <span className="text-jar-800">{e.name}</span>
-            <span className="ml-1 text-jar-600">{fmtMoney(e.amount, currency)}</span>
+            <span className="text-slate-800">{e.name}</span>
+            <span className="ml-1 text-slate-500">{fmtMoney(e.amount, currency)}</span>
           </div>
         ))}
       </div>
@@ -402,7 +402,7 @@ function SplitCell({
   }
   return (
     <div
-      className="text-jar-600"
+      className="text-slate-500"
       title={summary.entries
         .map((e) => `${e.name}: ${fmtMoney(e.amount, currency)}`)
         .join("\n")}
@@ -431,13 +431,13 @@ function ExpenseRowView({
 }) {
   const summary = describeShares(expense, members, activeMemberCount);
   return (
-    <tr className="hover:bg-jar-50">
-      <td className="whitespace-nowrap px-3 py-2 align-top text-jar-600">{expense.date}</td>
+    <tr className="hover:bg-slate-50">
+      <td className="whitespace-nowrap px-3 py-2 align-top text-slate-500">{expense.date}</td>
       <td className="whitespace-nowrap px-3 py-2 align-top font-medium">
         {memberName(expense.payer_id)}
       </td>
       <td className="px-3 py-2 align-top">
-        {expense.description || <span className="text-jar-600">—</span>}
+        {expense.description || <span className="text-slate-500">—</span>}
       </td>
       <td className="px-3 py-2 align-top">
         <SplitCell summary={summary} currency={currency} />
@@ -447,7 +447,7 @@ function ExpenseRowView({
       </td>
       <td className="whitespace-nowrap px-3 py-2 align-top text-right">
         <div className="flex justify-end gap-3">
-          <button className="text-xs text-jar-600 hover:underline" onClick={onEdit}>
+          <button className="text-xs text-slate-500 hover:underline" onClick={onEdit}>
             edit
           </button>
           <button className="text-xs text-red-600 hover:underline" onClick={onDelete}>
@@ -471,17 +471,17 @@ function SettlementRowView({
   onDelete: () => void;
 }) {
   return (
-    <tr className="bg-jar-50/50 hover:bg-jar-50">
-      <td className="whitespace-nowrap px-3 py-2 align-top text-jar-600">{settlement.date}</td>
+    <tr className="bg-emerald-50/40 hover:bg-slate-50">
+      <td className="whitespace-nowrap px-3 py-2 align-top text-slate-500">{settlement.date}</td>
       <td className="whitespace-nowrap px-3 py-2 align-top font-medium">
         {memberName(settlement.from_member_id)}
       </td>
       <td className="px-3 py-2 align-top">
-        <span className="rounded-full bg-jar-200 px-2 py-0.5 text-xs font-medium text-jar-800">
+        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-slate-800">
           ⇋ Settlement
         </span>
       </td>
-      <td className="whitespace-nowrap px-3 py-2 align-top text-jar-600">
+      <td className="whitespace-nowrap px-3 py-2 align-top text-slate-500">
         {memberName(settlement.to_member_id)}
       </td>
       <td className="whitespace-nowrap px-3 py-2 align-top text-right font-semibold">
