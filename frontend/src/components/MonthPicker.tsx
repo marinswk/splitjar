@@ -1,3 +1,5 @@
+import { useRef } from "react";
+
 type Props = {
   year: number;
   month: number;
@@ -15,7 +17,25 @@ function shift(year: number, month: number, delta: number): [number, number] {
 }
 
 export function MonthPicker({ year, month, onChange }: Props) {
+  const inputRef = useRef<HTMLInputElement>(null);
   const value = `${year}-${String(month).padStart(2, "0")}`;
+
+  const openPicker = () => {
+    const el = inputRef.current;
+    if (!el) return;
+    // showPicker() is the modern API; some browsers still need a focus+click fallback.
+    if (typeof el.showPicker === "function") {
+      try {
+        el.showPicker();
+        return;
+      } catch {
+        /* fall through */
+      }
+    }
+    el.focus();
+    el.click();
+  };
+
   return (
     <div className="inline-flex items-center gap-1 rounded-md border border-jar-200 bg-white">
       <button
@@ -29,18 +49,25 @@ export function MonthPicker({ year, month, onChange }: Props) {
       >
         ‹
       </button>
-      <label className="relative cursor-pointer px-2 py-2 text-sm font-medium select-none">
+      <button
+        type="button"
+        className="px-2 py-2 text-sm font-medium hover:bg-jar-100"
+        onClick={openPicker}
+      >
         {MONTHS[month - 1]} {year}
-        <input
-          type="month"
-          className="absolute inset-0 w-full cursor-pointer opacity-0"
-          value={value}
-          onChange={(e) => {
-            const [y, m] = e.target.value.split("-").map((s) => parseInt(s, 10));
-            if (y && m) onChange(y, m);
-          }}
-        />
-      </label>
+      </button>
+      <input
+        ref={inputRef}
+        type="month"
+        className="sr-only"
+        tabIndex={-1}
+        aria-hidden="true"
+        value={value}
+        onChange={(e) => {
+          const [y, m] = e.target.value.split("-").map((s) => parseInt(s, 10));
+          if (y && m) onChange(y, m);
+        }}
+      />
       <button
         type="button"
         className="px-2 py-2 text-jar-600 hover:bg-jar-100"

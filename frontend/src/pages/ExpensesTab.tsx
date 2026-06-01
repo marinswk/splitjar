@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, type Group, type Member } from "../api/client";
+import {
+  api,
+  type Expense,
+  type Group,
+  type Member,
+  type SettlementRecord,
+} from "../api/client";
 import { FormulaInput } from "../components/FormulaInput";
 import { ShareEditor, type ShareDraft } from "../components/ShareEditor";
 import { MonthPicker } from "../components/MonthPicker";
@@ -26,6 +32,38 @@ function fmtMoney(amount: string | number, currency: string): string {
 
 const today = new Date().toISOString().slice(0, 10);
 
+type ExpenseRow = { kind: "expense"; date: string; sortKey: string; data: Expense };
+type SettlementRow = { kind: "settlement"; date: string; sortKey: string; data: SettlementRecord };
+type Row = ExpenseRow | SettlementRow;
+
+function describeShares(
+  expense: Expense,
+  members: Member[],
+  activeMemberCount: number,
+): { forWhom: string; each: string | null } {
+  const shares = expense.shares;
+  const total = parseFloat(expense.amount);
+  const allEqual =
+    shares.length >= 2 &&
+    shares.every((s) => Math.abs(parseFloat(s.percentage) - parseFloat(shares[0].percentage)) < 0.05);
+  const coversEveryone = shares.length === activeMemberCount && allEqual;
+
+  const each =
+    allEqual && shares.length > 1 ? (total / shares.length).toFixed(2) : null;
+
+  if (coversEveryone) return { forWhom: "Everyone", each };
+  if (shares.length === 1) {
+    return { forWhom: members.find((m) => m.id === shares[0].member_id)?.name ?? "?", each: null };
+  }
+  if (shares.length <= 3) {
+    const names = shares
+      .map((s) => members.find((m) => m.id === s.member_id)?.name ?? "?")
+      .join(", ");
+    return { forWhom: names, each };
+  }
+  return { forWhom: `${shares.length} people`, each };
+}
+
 export default function ExpensesTab({ group }: { group: Group }) {
   const qc = useQueryClient();
   const now = new Date();
@@ -40,8 +78,32 @@ export default function ExpensesTab({ group }: { group: Group }) {
     queryKey: ["expenses", group.id, year, month],
     queryFn: () => api.listExpenses(group.id, year, month),
   });
+  const { data: settlements = [] } = useQuery({
+    queryKey: ["settlements", group.id, year, month],
+    queryFn: () => api.listSettlements(group.id, year, month),
+  });
 
   const memberName = (id: number) => members.find((m) => m.id === id)?.name ?? "?";
+  const activeMembers = useMemo(() => members.filter((m) => m.active), [members]);
+
+  const rows: Row[] = useMemo(() => {
+    const all: Row[] = [
+      ...expenses.map<ExpenseRow>((e) => ({
+        kind: "expense",
+        date: e.date,
+        sortKey: `${e.date}-e-${String(e.id).padStart(8, "0")}`,
+        data: e,
+      })),
+      ...settlements.map<SettlementRow>((s) => ({
+        kind: "settlement",
+        date: s.date,
+        sortKey: `${s.date}-s-${String(s.id).padStart(8, "0")}`,
+        data: s,
+      })),
+    ];
+    all.sort((a, b) => (a.sortKey < b.sortKey ? 1 : -1));
+    return all;
+  }, [expenses, settlements]);
 
   const [showForm, setShowForm] = useState(false);
   const [amount, setAmount] = useState("");
@@ -52,14 +114,19 @@ export default function ExpensesTab({ group }: { group: Group }) {
   const [shares, setShares] = useState<ShareDraft[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  const activeMembers = useMemo(() => members.filter((m) => m.active), [members]);
-
   useEffect(() => {
     if (showForm && shares.length === 0 && activeMembers.length > 0) {
       setShares(equalShares(members));
       if (payerId === null) setPayerId(activeMembers[0].id);
     }
   }, [showForm, activeMembers.length]);
+
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ["expenses", group.id] });
+    qc.invalidateQueries({ queryKey: ["settlements", group.id] });
+    qc.invalidateQueries({ queryKey: ["stats", group.id] });
+    qc.invalidateQueries({ queryKey: ["stats-alltime", group.id] });
+  };
 
   const create = useMutation({
     mutationFn: async () => {
@@ -76,9 +143,7 @@ export default function ExpensesTab({ group }: { group: Group }) {
       });
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["expenses", group.id] });
-      qc.invalidateQueries({ queryKey: ["stats", group.id] });
-      qc.invalidateQueries({ queryKey: ["stats-alltime", group.id] });
+      invalidate();
       setShowForm(false);
       setAmount("");
       setDescription("");
@@ -88,13 +153,13 @@ export default function ExpensesTab({ group }: { group: Group }) {
     onError: (e: Error) => setError(e.message),
   });
 
-  const del = useMutation({
+  const delExpense = useMutation({
     mutationFn: (id: number) => api.deleteExpense(id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["expenses", group.id] });
-      qc.invalidateQueries({ queryKey: ["stats", group.id] });
-      qc.invalidateQueries({ queryKey: ["stats-alltime", group.id] });
-    },
+    onSuccess: invalidate,
+  });
+  const delSettlement = useMutation({
+    mutationFn: (id: number) => api.deleteSettlement(id),
+    onSuccess: invalidate,
   });
 
   return (
@@ -123,11 +188,7 @@ export default function ExpensesTab({ group }: { group: Group }) {
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <label className="label">Amount</label>
-              <FormulaInput
-                value={amount}
-                onChange={setAmount}
-                onValue={setAmountValue}
-              />
+              <FormulaInput value={amount} onChange={setAmount} onValue={setAmountValue} />
             </div>
             <div>
               <label className="label">Date</label>
@@ -173,33 +234,124 @@ export default function ExpensesTab({ group }: { group: Group }) {
         </div>
       )}
 
-      {expenses.length === 0 ? (
-        <p className="text-sm text-jar-600">No expenses for this month.</p>
+      {rows.length === 0 ? (
+        <p className="card text-sm text-jar-600">No expenses or settlements for this month.</p>
       ) : (
-        <ul className="space-y-2">
-          {expenses.map((e) => (
-            <li key={e.id} className="card flex items-center justify-between gap-3">
-              <div className="min-w-0 flex-1">
-                <div className="truncate font-medium">{e.description || "(no description)"}</div>
-                <div className="text-xs text-jar-600">
-                  {e.date} · paid by {memberName(e.payer_id)}
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="font-semibold">{fmtMoney(e.amount, group.currency)}</div>
-                <button
-                  className="text-xs text-red-600 hover:underline"
-                  onClick={() => {
-                    if (confirm("Delete this expense?")) del.mutate(e.id);
-                  }}
-                >
-                  delete
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
+        <div className="card overflow-x-auto p-0">
+          <table className="w-full min-w-[600px] text-sm">
+            <thead className="bg-jar-100 text-left text-xs uppercase tracking-wide text-jar-600">
+              <tr>
+                <th className="px-3 py-2 font-medium">When</th>
+                <th className="px-3 py-2 font-medium">Who paid</th>
+                <th className="px-3 py-2 font-medium">For what</th>
+                <th className="px-3 py-2 font-medium">For whom</th>
+                <th className="px-3 py-2 text-right font-medium">How much</th>
+                <th className="px-3 py-2 text-right font-medium">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-jar-100">
+              {rows.map((row) =>
+                row.kind === "expense" ? (
+                  <ExpenseRowView
+                    key={`e-${row.data.id}`}
+                    expense={row.data}
+                    members={members}
+                    activeMemberCount={activeMembers.length}
+                    currency={group.currency}
+                    onDelete={() => {
+                      if (confirm("Delete this expense?")) delExpense.mutate(row.data.id);
+                    }}
+                    memberName={memberName}
+                  />
+                ) : (
+                  <SettlementRowView
+                    key={`s-${row.data.id}`}
+                    settlement={row.data}
+                    currency={group.currency}
+                    memberName={memberName}
+                    onDelete={() => {
+                      if (confirm("Delete this settlement? The debt will reappear."))
+                        delSettlement.mutate(row.data.id);
+                    }}
+                  />
+                ),
+              )}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
+  );
+}
+
+function ExpenseRowView({
+  expense,
+  members,
+  activeMemberCount,
+  currency,
+  onDelete,
+  memberName,
+}: {
+  expense: Expense;
+  members: Member[];
+  activeMemberCount: number;
+  currency: string;
+  onDelete: () => void;
+  memberName: (id: number) => string;
+}) {
+  const { forWhom, each } = describeShares(expense, members, activeMemberCount);
+  return (
+    <tr className="hover:bg-jar-50">
+      <td className="whitespace-nowrap px-3 py-2 text-jar-600">{expense.date}</td>
+      <td className="whitespace-nowrap px-3 py-2 font-medium">{memberName(expense.payer_id)}</td>
+      <td className="px-3 py-2">{expense.description || <span className="text-jar-600">—</span>}</td>
+      <td className="px-3 py-2 text-jar-600">{forWhom}</td>
+      <td className="whitespace-nowrap px-3 py-2 text-right font-semibold">
+        {fmtMoney(expense.amount, currency)}
+        {each && (
+          <span className="ml-1 text-xs font-normal text-jar-600">({fmtMoney(each, currency)} each)</span>
+        )}
+      </td>
+      <td className="whitespace-nowrap px-3 py-2 text-right">
+        <button className="text-xs text-red-600 hover:underline" onClick={onDelete}>
+          delete
+        </button>
+      </td>
+    </tr>
+  );
+}
+
+function SettlementRowView({
+  settlement,
+  currency,
+  memberName,
+  onDelete,
+}: {
+  settlement: SettlementRecord;
+  currency: string;
+  memberName: (id: number) => string;
+  onDelete: () => void;
+}) {
+  return (
+    <tr className="bg-jar-50/50 hover:bg-jar-50">
+      <td className="whitespace-nowrap px-3 py-2 text-jar-600">{settlement.date}</td>
+      <td className="whitespace-nowrap px-3 py-2 font-medium">{memberName(settlement.from_member_id)}</td>
+      <td className="px-3 py-2">
+        <span className="rounded-full bg-jar-200 px-2 py-0.5 text-xs font-medium text-jar-800">
+          ⇋ Settlement
+        </span>
+      </td>
+      <td className="whitespace-nowrap px-3 py-2 text-jar-600">
+        {memberName(settlement.to_member_id)}
+      </td>
+      <td className="whitespace-nowrap px-3 py-2 text-right font-semibold">
+        {fmtMoney(settlement.amount, currency)}
+      </td>
+      <td className="whitespace-nowrap px-3 py-2 text-right">
+        <button className="text-xs text-red-600 hover:underline" onClick={onDelete}>
+          delete
+        </button>
+      </td>
+    </tr>
   );
 }

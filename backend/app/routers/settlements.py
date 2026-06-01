@@ -3,12 +3,12 @@ from __future__ import annotations
 from datetime import date as date_t
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session, select
 
 from app.db import get_session
 from app.models import Expense, ExpenseShare, Group, Member, Settlement
-from app.schemas import MemberBalance, Transfer
+from app.schemas import MemberBalance, SettlementOut, Transfer
 from app.services.balances import settle
 
 router = APIRouter(tags=["settlements"])
@@ -49,6 +49,37 @@ def _compute_transfers(group_id: int, session: Session) -> list[Transfer]:
         for m in members
     ]
     return settle(balances)
+
+
+@router.get("/api/groups/{group_id}/settlements", response_model=list[SettlementOut])
+def list_settlements(
+    group_id: int,
+    year: int | None = Query(default=None),
+    month: int | None = Query(default=None, ge=1, le=12),
+    session: Session = Depends(get_session),
+):
+    if not session.get(Group, group_id):
+        raise HTTPException(404, "group not found")
+    stmt = select(Settlement).where(Settlement.group_id == group_id)
+    if year is not None and month is not None:
+        start = date_t(year, month, 1)
+        end = date_t(year + (month // 12), (month % 12) + 1, 1)
+        stmt = stmt.where(Settlement.date >= start, Settlement.date < end)
+    elif year is not None:
+        start = date_t(year, 1, 1)
+        end = date_t(year + 1, 1, 1)
+        stmt = stmt.where(Settlement.date >= start, Settlement.date < end)
+    return session.exec(stmt.order_by(Settlement.date.desc(), Settlement.id.desc())).all()
+
+
+@router.delete("/api/settlements/{settlement_id}")
+def delete_settlement(settlement_id: int, session: Session = Depends(get_session)):
+    s = session.get(Settlement, settlement_id)
+    if not s:
+        raise HTTPException(404, "settlement not found")
+    session.delete(s)
+    session.commit()
+    return {"ok": True}
 
 
 @router.post("/api/groups/{group_id}/settle", response_model=list[Transfer])

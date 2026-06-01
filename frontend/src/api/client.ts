@@ -47,6 +47,16 @@ export type Stats = {
   settlements: Transfer[];
 };
 
+export type SettlementRecord = {
+  id: number;
+  group_id: number;
+  from_member_id: number;
+  to_member_id: number;
+  amount: string;
+  date: string;
+  created_at: string;
+};
+
 async function http<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
     headers: { "Content-Type": "application/json", ...(init?.headers || {}) },
@@ -109,4 +119,14 @@ export const api = {
 
   settle: (gid: number) =>
     http<Transfer[]>(`/api/groups/${gid}/settle`, { method: "POST" }),
+
+  listSettlements: (gid: number, year?: number, month?: number) => {
+    const q = new URLSearchParams();
+    if (year) q.set("year", String(year));
+    if (month) q.set("month", String(month));
+    const qs = q.toString() ? `?${q.toString()}` : "";
+    return http<SettlementRecord[]>(`/api/groups/${gid}/settlements${qs}`);
+  },
+  deleteSettlement: (id: number) =>
+    http<{ ok: boolean }>(`/api/settlements/${id}`, { method: "DELETE" }),
 };

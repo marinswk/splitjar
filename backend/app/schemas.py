@@ -82,3 +82,13 @@ class StatsOut(BaseModel):
     total: Decimal
     balances: list[MemberBalance]
     settlements: list[Transfer]
+
+
+class SettlementOut(BaseModel):
+    id: int
+    group_id: int
+    from_member_id: int
+    to_member_id: int
+    amount: Decimal
+    date: date
+    created_at: datetime
