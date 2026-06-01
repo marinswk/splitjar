@@ -106,4 +106,7 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ expression }),
     }),
+
+  settle: (gid: number) =>
+    http<Transfer[]>(`/api/groups/${gid}/settle`, { method: "POST" }),
 };

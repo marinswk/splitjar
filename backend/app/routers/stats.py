@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session, select
 
 from app.db import get_session
-from app.models import Expense, ExpenseShare, Group, Member
+from app.models import Expense, ExpenseShare, Group, Member, Settlement
 from app.schemas import MemberBalance, StatsOut
 from app.services.balances import settle
 
@@ -38,7 +38,6 @@ def stats(
 
     expenses = session.exec(stmt).all()
     members = session.exec(select(Member).where(Member.group_id == group_id)).all()
-    by_id = {m.id: m for m in members}
 
     paid: dict[int, Decimal] = {m.id: Decimal("0") for m in members}
     owed: dict[int, Decimal] = {m.id: Decimal("0") for m in members}
@@ -53,6 +52,21 @@ def stats(
         for s in shares:
             share_amount = (e.amount * s.percentage / Decimal("100")).quantize(CENT)
             owed[s.member_id] = owed.get(s.member_id, Decimal("0")) + share_amount
+
+    # Settlements use the same date window. A settlement from A to B means A
+    # paid down their debt to B: count it as A "paying" and B "owing back".
+    settle_stmt = select(Settlement).where(Settlement.group_id == group_id)
+    if year is not None and month is not None:
+        start = date_t(year, month, 1)
+        end = date_t(year + (month // 12), (month % 12) + 1, 1)
+        settle_stmt = settle_stmt.where(Settlement.date >= start, Settlement.date < end)
+    elif year is not None:
+        start = date_t(year, 1, 1)
+        end = date_t(year + 1, 1, 1)
+        settle_stmt = settle_stmt.where(Settlement.date >= start, Settlement.date < end)
+    for s in session.exec(settle_stmt).all():
+        paid[s.from_member_id] = paid.get(s.from_member_id, Decimal("0")) + s.amount
+        owed[s.to_member_id] = owed.get(s.to_member_id, Decimal("0")) + s.amount
 
     balances = [
         MemberBalance(

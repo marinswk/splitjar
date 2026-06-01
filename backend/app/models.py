@@ -38,3 +38,13 @@ class ExpenseShare(SQLModel, table=True):
     expense_id: int = Field(foreign_key="expense.id", index=True)
     member_id: int = Field(foreign_key="member.id")
     percentage: Decimal = Field(max_digits=6, decimal_places=3)
+
+
+class Settlement(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    group_id: int = Field(foreign_key="group.id", index=True)
+    from_member_id: int = Field(foreign_key="member.id")
+    to_member_id: int = Field(foreign_key="member.id")
+    amount: Decimal = Field(max_digits=12, decimal_places=2)
+    date: date
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

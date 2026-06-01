@@ -1,9 +1,23 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, type Group } from "../api/client";
+import { api, type Group, type Member } from "../api/client";
 import { FormulaInput } from "../components/FormulaInput";
 import { ShareEditor, type ShareDraft } from "../components/ShareEditor";
 import { MonthPicker } from "../components/MonthPicker";
+import { BalancesOverview } from "../components/BalancesOverview";
+
+function equalShares(members: Member[]): ShareDraft[] {
+  const active = members.filter((m) => m.active);
+  if (!active.length) return [];
+  const each = +(100 / active.length).toFixed(2);
+  return active.map((m, i) => ({
+    member_id: m.id,
+    percentage:
+      i === active.length - 1
+        ? (100 - each * (active.length - 1)).toFixed(2)
+        : each.toFixed(2),
+  }));
+}
 
 function fmtMoney(amount: string | number, currency: string): string {
   const v = typeof amount === "string" ? parseFloat(amount) : amount;
@@ -40,6 +54,13 @@ export default function ExpensesTab({ group }: { group: Group }) {
 
   const activeMembers = useMemo(() => members.filter((m) => m.active), [members]);
 
+  useEffect(() => {
+    if (showForm && shares.length === 0 && activeMembers.length > 0) {
+      setShares(equalShares(members));
+      if (payerId === null) setPayerId(activeMembers[0].id);
+    }
+  }, [showForm, activeMembers.length]);
+
   const create = useMutation({
     mutationFn: async () => {
       if (!payerId) throw new Error("pick a payer");
@@ -57,6 +78,7 @@ export default function ExpensesTab({ group }: { group: Group }) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["expenses", group.id] });
       qc.invalidateQueries({ queryKey: ["stats", group.id] });
+      qc.invalidateQueries({ queryKey: ["stats-alltime", group.id] });
       setShowForm(false);
       setAmount("");
       setDescription("");
@@ -71,11 +93,14 @@ export default function ExpensesTab({ group }: { group: Group }) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["expenses", group.id] });
       qc.invalidateQueries({ queryKey: ["stats", group.id] });
+      qc.invalidateQueries({ queryKey: ["stats-alltime", group.id] });
     },
   });
 
   return (
     <div className="space-y-4">
+      {activeMembers.length > 0 && <BalancesOverview group={group} />}
+
       <div className="flex flex-wrap items-center justify-between gap-2">
         <MonthPicker year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); }} />
         <button
