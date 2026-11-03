@@ -10,6 +10,7 @@ dependencies = [
     "sqlmodel>=0.0.22",
     "alembic>=1.13",
     "pydantic>=2.9",
+    "greenlet>=3.0",
 ]
 
 [project.optional-dependencies]
