@@ -138,6 +138,12 @@ npm run dev
 
 Then open <http://localhost:5173>.
 
+### Dependency versions
+
+The image installs exact versions: Python libraries from `backend/uv.lock`, frontend packages from
+`frontend/package-lock.json` (`npm ci`). To move to newer versions, run `cd backend && uv lock --upgrade`
+and `cd frontend && npm update`, run the tests, and commit both lock files.
+
 ### Tests
 
 ```bash

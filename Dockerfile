@@ -3,8 +3,8 @@
 # --- Frontend build stage ---
 FROM node:20-alpine AS frontend-builder
 WORKDIR /fe
-COPY frontend/package.json frontend/package-lock.json* ./
-RUN npm install --no-audit --no-fund
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci --no-audit --no-fund
 COPY frontend/ ./
 RUN npm run build
 
@@ -12,16 +12,19 @@ RUN npm run build
 FROM python:3.12-slim AS backend-builder
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 PIP_NO_CACHE_DIR=1
 WORKDIR /build
-COPY backend/pyproject.toml ./
-RUN pip install --upgrade pip && pip install \
-    "fastapi>=0.115" "uvicorn[standard]>=0.32" "sqlmodel>=0.0.22" \
-    "alembic>=1.13" "pydantic>=2.9" "greenlet>=3.0"
+# Exact versions from backend/uv.lock (update it with `cd backend && uv lock --upgrade`).
+# uv lives outside /usr/local so the runtime stage doesn't copy it.
+COPY --from=ghcr.io/astral-sh/uv:0.13.1 /uv /opt/uv/uv
+COPY backend/pyproject.toml backend/uv.lock ./
+RUN /opt/uv/uv export --frozen --no-emit-project --no-dev -o requirements.txt \
+ && pip install --no-deps --require-hashes -r requirements.txt
 
 # --- Test stage (used by CI) ---
 FROM backend-builder AS test
 WORKDIR /app
 COPY backend/ ./
-RUN pip install "pytest>=8.3" "pytest-asyncio>=0.24" "httpx>=0.27"
+RUN /opt/uv/uv export --frozen --no-emit-project --no-dev --extra dev -o /tmp/requirements-dev.txt \
+ && pip install --no-deps --require-hashes -r /tmp/requirements-dev.txt
 ENV SPLITJAR_DATA_DIR=/tmp/splitjar PYTHONPATH=/app
 RUN mkdir -p /tmp/splitjar
 CMD ["pytest", "-q"]
